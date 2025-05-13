@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Lighthouse Score Viewer (Circle Style)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      text-align: center;
+    }
+    input {
+      width: 60%;
+      padding: 10px;
+      font-size: 1rem;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 1rem;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      margin-left: 10px;
+    }
+    .score-grid {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 30px;
+      margin-top: 30px;
+    }
+    .chart-wrapper {
+      width: 150px;
+      height: 150px;
+    }
+    canvas {
+      margin: auto;
+    }
+    .score-label {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    #error {
+      color: red;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Lighthouse Scores</h1>
+  <input type="text" id="urlInput" placeholder="https://example.com" />
+  <button onclick="getScores()">Check</button>
+  <div id="error"></div>
+  <div class="score-grid" id="scoreGrid"></div>
+
+  <script>
+    async function getScores() {
+      const url = document.getElementById('urlInput').value.trim();
+      const errorEl = document.getElementById('error');
+      const grid = document.getElementById('scoreGrid');
+      errorEl.textContent = '';
+      grid.innerHTML = '';
+
+      if (!url) {
+        errorEl.textContent = 'Please enter a URL.';
+        return;
+      }
+
+      try {
+        const apiUrl = `https://corsproxy.io/?https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=mobile`;
+        const res = await fetch(apiUrl);
+        const data = await res.json();
+
+        const categories = data.lighthouseResult.categories;
+
+        const scores = [
+          { name: 'Performance', score: categories.performance.score * 100, color: '#ffa400' },
+          { name: 'Accessibility', score: categories.accessibility.score * 100, color: '#03a9f4' },
+          { name: 'Best Practices', score: categories['best-practices'].score * 100, color: '#4caf50' },
+          { name: 'SEO', score: categories.seo.score * 100, color: '#8e44ad' }
+        ];
+
+        scores.forEach((item, i) => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'chart-wrapper';
+          wrapper.innerHTML = `
+            <canvas id="chart${i}"></canvas>
+            <div class="score-label">${item.name}</div>
+          `;
+          grid.appendChild(wrapper);
+
+          new Chart(document.getElementById(`chart${i}`), {
+            type: 'doughnut',
+            data: {
+              labels: ['Score', 'Remaining'],
+              datasets: [{
+                data: [item.score, 100 - item.score],
+                backgroundColor: [item.color, '#eee'],
+                borderWidth: 0
+              }]
+            },
+            options: {
+              cutout: '70%',
+              plugins: {
+                tooltip: { enabled: false },
+                legend: { display: false },
+                title: {
+                  display: true,
+                  text: `${item.score.toFixed(0)}`,
+                  position: 'center',
+                  color: item.color,
+                  font: {
+                    size: 18,
+                    weight: 'bold'
+                  }
+                }
+              }
+            }
+          });
+        });
+
+      } catch (err) {
+        console.error(err);
+        errorEl.textContent = 'Failed to fetch scores. May be due to CORS or invalid URL.';
+      }
+    }
+  </script>
+</body>
+</html>
