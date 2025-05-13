@@ -2,129 +2,105 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Lighthouse Score Viewer (Circle Style)</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>PageSpeed Score Checker</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      padding: 20px;
-      text-align: center;
+      padding: 30px;
+      background: #f4f4f4;
     }
-    input {
-      width: 60%;
+    h2 {
+      margin-bottom: 10px;
+    }
+    input, button {
       padding: 10px;
-      font-size: 1rem;
+      font-size: 16px;
     }
-    button {
-      padding: 10px 20px;
-      font-size: 1rem;
-      background-color: #007bff;
-      color: white;
-      border: none;
-      margin-left: 10px;
-    }
-    .score-grid {
+    .score-container {
       display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      gap: 30px;
-      margin-top: 30px;
+      gap: 20px;
+      margin-top: 20px;
     }
-    .chart-wrapper {
-      width: 150px;
-      height: 150px;
+    .score-box {
+      text-align: center;
+      padding: 20px;
+      border-radius: 10px;
+      width: 120px;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
-    canvas {
-      margin: auto;
+    .score-box h3 {
+      margin: 10px 0 5px;
     }
-    .score-label {
-      margin-top: 10px;
+    .score {
+      font-size: 24px;
       font-weight: bold;
     }
-    #error {
+    .error {
       color: red;
-      margin-top: 10px;
+      margin-top: 20px;
     }
   </style>
 </head>
 <body>
-  <h1>Lighthouse Scores</h1>
-  <input type="text" id="urlInput" placeholder="https://example.com" />
-  <button onclick="getScores()">Check</button>
-  <div id="error"></div>
-  <div class="score-grid" id="scoreGrid"></div>
+
+  <h2>🔍 Check PageSpeed Scores</h2>
+  <input type="text" id="urlInput" placeholder="Enter website URL (e.g. https://shopee.com)" size="50">
+  <button onclick="checkScores()">Check</button>
+
+  <div class="error" id="errorMsg"></div>
+  <div class="score-container" id="scores" style="display: none;"></div>
 
   <script>
-    async function getScores() {
-      const url = document.getElementById('urlInput').value.trim();
-      const errorEl = document.getElementById('error');
-      const grid = document.getElementById('scoreGrid');
-      errorEl.textContent = '';
-      grid.innerHTML = '';
+    async function checkScores() {
+      const url = document.getElementById("urlInput").value.trim();
+      const errorDiv = document.getElementById("errorMsg");
+      const scoresDiv = document.getElementById("scores");
+
+      errorDiv.textContent = "";
+      scoresDiv.style.display = "none";
+      scoresDiv.innerHTML = "";
 
       if (!url) {
-        errorEl.textContent = 'Please enter a URL.';
+        errorDiv.textContent = "❗ Please enter a valid URL.";
         return;
       }
 
+      const apiUrl = `https://test-pagespeed.vercel.app/api/pagespeed?url=${encodeURIComponent(url)}`;
+
       try {
-        const apiUrl = `https://corsproxy.io/?https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(url)}&strategy=mobile`;
         const res = await fetch(apiUrl);
         const data = await res.json();
+
+        if (!data.lighthouseResult || !data.lighthouseResult.categories) {
+          throw new Error("Invalid response structure.");
+        }
 
         const categories = data.lighthouseResult.categories;
 
         const scores = [
-          { name: 'Performance', score: categories.performance.score * 100, color: '#ffa400' },
-          { name: 'Accessibility', score: categories.accessibility.score * 100, color: '#03a9f4' },
-          { name: 'Best Practices', score: categories['best-practices'].score * 100, color: '#4caf50' },
-          { name: 'SEO', score: categories.seo.score * 100, color: '#8e44ad' }
+          { label: "Performance", score: categories.performance.score },
+          { label: "Accessibility", score: categories.accessibility.score },
+          { label: "Best Practices", score: categories["best-practices"].score },
+          { label: "SEO", score: categories.seo.score }
         ];
 
-        scores.forEach((item, i) => {
-          const wrapper = document.createElement('div');
-          wrapper.className = 'chart-wrapper';
-          wrapper.innerHTML = `
-            <canvas id="chart${i}"></canvas>
-            <div class="score-label">${item.name}</div>
-          `;
-          grid.appendChild(wrapper);
-
-          new Chart(document.getElementById(`chart${i}`), {
-            type: 'doughnut',
-            data: {
-              labels: ['Score', 'Remaining'],
-              datasets: [{
-                data: [item.score, 100 - item.score],
-                backgroundColor: [item.color, '#eee'],
-                borderWidth: 0
-              }]
-            },
-            options: {
-              cutout: '70%',
-              plugins: {
-                tooltip: { enabled: false },
-                legend: { display: false },
-                title: {
-                  display: true,
-                  text: `${item.score.toFixed(0)}`,
-                  position: 'center',
-                  color: item.color,
-                  font: {
-                    size: 18,
-                    weight: 'bold'
-                  }
-                }
-              }
-            }
-          });
+        scores.forEach(cat => {
+          const percent = Math.round(cat.score * 100);
+          const box = document.createElement("div");
+          box.className = "score-box";
+          box.innerHTML = `<div class="score">${percent}</div><h3>${cat.label}</h3>`;
+          scoresDiv.appendChild(box);
         });
+
+        scoresDiv.style.display = "flex";
 
       } catch (err) {
         console.error(err);
-        errorEl.textContent = 'Failed to fetch scores. May be due to CORS or invalid URL.';
+        errorDiv.textContent = "⚠️ Failed to fetch scores. This may be due to invalid URL or server error.";
       }
     }
   </script>
+
 </body>
 </html>
